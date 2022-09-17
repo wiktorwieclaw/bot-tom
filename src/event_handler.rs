@@ -4,7 +4,8 @@ use delay_timer::prelude::*;
 use rand::seq::SliceRandom;
 use serenity::{
     async_trait,
-    model::gateway::Ready,
+    framework::standard::{macros::hook, CommandResult},
+    model::{gateway::Ready, prelude::Message},
     prelude::{Context as SerenityContext, EventHandler},
 };
 use songbird::id::ChannelId;
@@ -22,7 +23,8 @@ impl BotEventHandler {
 
 #[async_trait]
 impl EventHandler for BotEventHandler {
-    async fn ready(&self, ctx: SerenityContext, _ready: Ready) {
+    #[tracing::instrument("Setting up event handler", skip_all)]
+    async fn ready(&self, ctx: SerenityContext, _bot_info: Ready) {
         let ctx = Arc::new(ctx);
         let configuration = Arc::new(self.configuration.clone());
 
@@ -47,14 +49,45 @@ impl EventHandler for BotEventHandler {
     }
 }
 
+#[hook]
+#[tracing::instrument(skip(_ctx, _msg))]
+pub async fn before(_ctx: &SerenityContext, _msg: &Message, _command_name: &str) -> bool {
+    true
+}
+
+#[hook]
+#[tracing::instrument(skip(_ctx, _msg))]
+pub async fn after(
+    ctx: &SerenityContext,
+    msg: &Message,
+    _command_name: &str,
+    command_result: CommandResult,
+) {
+    if let Err(e) = command_result {
+        msg.channel_id
+            .say(&ctx.http, format!("{e}"))
+            .await
+            .expect("Failed to send error message");
+    };
+}
+
+#[tracing::instrument(skip_all)]
 async fn cenzo_papa(
     ctx: Arc<SerenityContext>,
     configuration: Arc<Configuration>,
 ) -> Result<(), anyhow::Error> {
+    tracing::info!("Playing cenzo");
     // TODO: support larger number of guilds
     let guild_id = ctx.cache.guilds()[0];
+    tracing::info!("Guild id - {guild_id}");
     // TODO: Find the channel with the most people
     let channel_id = ChannelId(configuration.cenzo_papa.channel_id);
+
+    let audio_url = configuration
+        .cenzo_papa
+        .songs
+        .choose(&mut rand::thread_rng())
+        .context("The list of cenzo_papa songs is empty")?;
 
     let songbird = songbird::get(&ctx)
         .await
@@ -62,11 +95,6 @@ async fn cenzo_papa(
     let (call, _) = songbird.join(guild_id, channel_id).await;
     let mut call = call.lock().await;
 
-    let audio_url = configuration
-        .cenzo_papa
-        .songs
-        .choose(&mut rand::thread_rng())
-        .context("The list of cenzo_papa songs is empty")?;
     let audio_source = songbird::ytdl(audio_url)
         .await
         .context("Failed to create streamed audio source")?;

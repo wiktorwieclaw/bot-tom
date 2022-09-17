@@ -1,3 +1,7 @@
+[discord]
+token = ""
+guild_id = 0
+
 [cenzo_papa]
 channel_id = 678989429339062273
 songs = [
