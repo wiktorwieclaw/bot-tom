@@ -1,3 +1,4 @@
+mod audio;
 mod command;
 pub mod configuration;
 mod event_handler;

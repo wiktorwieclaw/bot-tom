@@ -3,10 +3,10 @@ use std::sync::Arc;
 use anyhow::Context;
 use delay_timer::prelude::{Task, TaskBuilder, TaskError};
 use rand::seq::SliceRandom;
-use serenity::prelude::Context as SerenityContext;
-use songbird::id::ChannelId;
+use serenity::{model::id::ChannelId, prelude::Context as SerenityContext};
+use url::Url;
 
-use crate::configuration::Configuration;
+use crate::{audio, configuration::Configuration};
 
 #[tracing::instrument("Building cenzo task", skip_all)]
 pub fn build_cenzo(
@@ -19,11 +19,7 @@ pub fn build_cenzo(
         .spawn_async_routine(move || {
             let ctx = Arc::clone(&ctx);
             let configuration = Arc::clone(&configuration);
-            async {
-                cenzo(ctx, configuration)
-                    .await
-                    .expect("Cenzo papa failed")
-            }
+            async { cenzo(ctx, configuration).await.expect("Cenzo papa failed") }
         })
 }
 
@@ -32,28 +28,21 @@ async fn cenzo(
     ctx: Arc<SerenityContext>,
     configuration: Arc<Configuration>,
 ) -> Result<(), anyhow::Error> {
-    tracing::info!("Playing cenzo");
     // TODO: support larger number of guilds
     let guild_id = ctx.cache.guilds()[0];
-    tracing::info!("Guild id - {guild_id}");
-    // TODO: Find the channel with the most people
+
+    // TODO: Find the most populated channel
     let channel_id = ChannelId(configuration.cenzo_papa.channel_id);
 
-    let audio_url = configuration
+    let raw_url = configuration
         .cenzo_papa
         .songs
         .choose(&mut rand::thread_rng())
-        .context("The list of cenzo_papa songs is empty")?;
+        .context("The list of cenzo songs is empty")?;
+    let url = Url::parse(raw_url).context("Invalid url")?;
 
-    let songbird = songbird::get(&ctx)
+    audio::join_and_play(&ctx, guild_id, channel_id, &url)
         .await
-        .context("Failed to initialize songbird client")?;
-    let (call, _) = songbird.join(guild_id, channel_id).await;
-    let mut call = call.lock().await;
-
-    let audio_source = songbird::ytdl(audio_url)
-        .await
-        .context("Failed to create streamed audio source")?;
-    call.play_source(audio_source);
+        .context("Failed to play audio")?;
     Ok(())
 }

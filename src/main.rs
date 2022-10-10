@@ -4,7 +4,7 @@ use bot_tom::{configuration, startup, telemetry};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let subscriber = telemetry::setup_subscriber();
-    telemetry::init_subscriber(subscriber)?;
+    telemetry::init_subscriber(subscriber).context("Failed to init tracing subscriber")?;
 
     let configuration =
         configuration::read_configuration().context("Failed to read configuration")?;

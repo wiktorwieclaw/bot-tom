@@ -4,6 +4,9 @@ use serenity::{
     model::prelude::*,
     prelude::Context as SerenityContext,
 };
+use url::Url;
+
+use crate::audio;
 
 #[command]
 #[only_in(guilds)]
@@ -20,20 +23,13 @@ pub async fn play(ctx: &SerenityContext, msg: &Message, mut args: Args) -> Comma
 
     let raw_url: String = args
         .single()
-        .context("Must provide a URL to a video or audio")?;
-    let url = url::Url::parse(&raw_url).context("Invalid URL")?;
+        .context("Must provide an URL to a video or audio")?;
+    let url = Url::parse(&raw_url).context("Invalid url")?;
 
-    let songbird = songbird::get(ctx)
+    audio::join_and_play(ctx, guild_id, channel_id, &url)
         .await
-        .context("Songbird Voice client placed in at initialisation")?;
-    let (call, result) = songbird.join(guild_id, channel_id).await;
-    result.context("Failed to join channel")?;
+        .context("Failed to play audio")?;
 
-    let mut call = call.lock().await;
-    let audio_source = songbird::ytdl(&url)
-        .await
-        .context("Failed to create a streamed audio source")?;
-    call.play_source(audio_source);
     msg.channel_id
         .say(&ctx.http, "Playing song")
         .await

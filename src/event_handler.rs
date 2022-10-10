@@ -19,7 +19,7 @@ impl BotEventHandler {
 
 #[async_trait]
 impl EventHandler for BotEventHandler {
-    #[tracing::instrument("Setting up event handler", skip_all)]
+    #[tracing::instrument("Handling `ready` event", skip_all)]
     async fn ready(&self, ctx: SerenityContext, _bot_info: Ready) {
         let ctx = Arc::new(ctx);
         let configuration = Arc::new(self.configuration.clone());
