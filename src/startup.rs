@@ -1,5 +1,5 @@
 use crate::{
-    commands::general::GENERAL_GROUP,
+    command::general::GENERAL_GROUP,
     configuration::Configuration,
     event_handler::{self, BotEventHandler},
 };
